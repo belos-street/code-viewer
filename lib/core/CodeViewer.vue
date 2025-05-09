@@ -9,7 +9,12 @@
     <div class="code-viewer-content">
       <div class="view-lines">
         <div v-for="line in code" :key="line.id" :data-line-id="line.id" class="view-line">
-          {{ line.content }}
+          <template v-if="tokenize(line.content).length > 0">
+            <span v-for="(token, tokenIndex) in tokenize(line.content)" :key="tokenIndex">{{ token }}</span>
+          </template>
+          <template v-else>
+            <span>&nbsp;</span>
+          </template>
         </div>
       </div>
     </div>
@@ -21,6 +26,7 @@ import { ref, onMounted, onBeforeUnmount, provide, reactive, shallowRef, markRaw
 import type { PropType } from 'vue';
 import { eventBus } from './eventBus';
 import type { CodeData, Plugin, PluginContext } from './types';
+import { tokenize, installPlugin, uninstallPlugin } from './api';
 
 const props = defineProps({
   code: {
@@ -57,37 +63,6 @@ const pluginContext = reactive<PluginContext>({
 
 provide('pluginContext', pluginContext);
 
-const installPlugin = (plugin: Plugin) => {
-  if (!registeredPlugins.value.has(plugin.name)) {
-    try {
-      plugin.install(pluginContext);
-      registeredPlugins.value.set(plugin.name, plugin);
-      // 强制更新，因为 Map 不是深度响应的
-      registeredPlugins.value = new Map(registeredPlugins.value);
-      console.log(`Plugin '${plugin.name}' installed.`);
-      eventBus.emit('plugin:installed', { pluginName: plugin.name });
-    } catch (error) {
-      console.error(`Failed to install plugin '${plugin.name}':`, error);
-    }
-  }
-};
-
-const uninstallPlugin = (pluginName: string) => {
-  const plugin = registeredPlugins.value.get(pluginName);
-  if (plugin) {
-    try {
-      plugin.uninstall(pluginContext);
-      registeredPlugins.value.delete(pluginName);
-      // 强制更新
-      registeredPlugins.value = new Map(registeredPlugins.value);
-      console.log(`Plugin '${pluginName}' uninstalled.`);
-      eventBus.emit('plugin:uninstalled', { pluginName });
-    } catch (error) {
-      console.error(`Failed to uninstall plugin '${pluginName}':`, error);
-    }
-  }
-};
-
 // 暴露给父组件的方法，用于动态安装/卸载插件
 // 注意：在 <script setup> 中，defineExpose 是自动的，但如果需要显式控制，可以这样
 // defineExpose({
@@ -103,14 +78,14 @@ watch(() => props.plugins, (newPlugins, oldPlugins) => {
   // 卸载不再需要的插件
   oldPlugins?.forEach(plugin => {
     if (!newPluginNames.has(plugin.name)) {
-      uninstallPlugin(plugin.name);
+      uninstallPlugin(plugin.name, pluginContext, registeredPlugins);
     }
   });
 
   // 安装新插件
   newPlugins.forEach(plugin => {
     if (!registeredPlugins.value.has(plugin.name)) {
-      installPlugin(plugin);
+      installPlugin(plugin, pluginContext, registeredPlugins);
     }
   });
 }, { immediate: true, deep: true });
@@ -119,7 +94,7 @@ onMounted(() => {
   // 初始插件加载（如果通过 props 传递）
   props.plugins.forEach(plugin => {
     if (!registeredPlugins.value.has(plugin.name)) {
-        installPlugin(plugin);
+        installPlugin(plugin, pluginContext, registeredPlugins);
     }
   });
   eventBus.emit('codeviewer:mounted');
@@ -128,7 +103,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   // 组件卸载前卸载所有插件
   registeredPlugins.value.forEach(plugin => {
-    uninstallPlugin(plugin.name);
+    uninstallPlugin(plugin.name, pluginContext, registeredPlugins);
   });
   eventBus.emit('codeviewer:beforeUnmount');
 });
@@ -157,8 +132,35 @@ onBeforeUnmount(() => {
 .code-viewer-content {
   flex-grow: 1;
   padding: 10px 10px 10px 0px; /* 将左内边距调整为0，让行号插件的padding-right控制间距 */
-  overflow-x: auto; /* 允许水平滚动长代码行 */
+  overflow: hidden; /* 默认隐藏滚动条 */
   /* white-space: pre; 已被移除，pre 和 code 元素会处理空白 */
+}
+
+.code-viewer:hover .code-viewer-content {
+  overflow: auto; /* 鼠标悬停时显示滚动条 */
+}
+
+/* Webkit 浏览器滚动条样式 */
+.code-viewer-content::-webkit-scrollbar {
+  width: 8px;  /* 滚动条宽度 */
+  height: 8px; /* 滚动条高度，用于水平滚动条 */
+}
+
+.code-viewer-content::-webkit-scrollbar-track {
+  background: transparent; /* 轨道背景透明 */
+}
+
+.code-viewer-content::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 100, 0.4); /* 滑块颜色，半透明 */
+  border-radius: 4px; /* 滑块圆角 */
+}
+
+.code-viewer-content::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 100, 100, 0.7); /* 鼠标悬停时滑块颜色 */
+}
+
+.code-viewer-content::-webkit-scrollbar-corner {
+  background: transparent; /* 右下角交汇处背景透明 */
 }
 
 .code-viewer-content .view-lines {
@@ -169,8 +171,8 @@ onBeforeUnmount(() => {
 
 .code-viewer-content .view-line {
   display: block; /* 每行代码占一行 */
-  line-height: 1.5;
-  white-space: pre-wrap; /* 保留空白符，并在需要时换行 */
-  word-break: break-all; /* 对于非常长的无空格字符串，强制换行 */
+  
+  white-space: pre; /* 保留空白符，禁止自动换行 */
+  /* word-break: break-all; 已被 white-space: pre 覆盖，不再需要 */
 }
 </style>
