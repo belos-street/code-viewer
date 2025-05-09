@@ -7,11 +7,11 @@
       </div>
     </div>
     <div class="code-viewer-content">
-      <pre>
-        <span v-for="line in code" :key="line.id" :data-line-id="line.id">
+      <div class="view-lines">
+        <div v-for="line in code" :key="line.id" :data-line-id="line.id" class="view-line">
           {{ line.content }}
-        </span>
-      </pre>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -143,6 +143,7 @@ onBeforeUnmount(() => {
   border: 1px solid #ccc;
   overflow: auto;
   background-color: #f5f5f5;
+  color:black
 }
 
 .code-viewer-gutters {
@@ -151,7 +152,6 @@ onBeforeUnmount(() => {
   user-select: none; /* 禁止选择行号 */
   display: flex; /* 允许多个gutter组件并排 */
   flex-direction: column; /* 如果gutter组件是垂直堆叠的 */
-  /* 或者 flex-direction: row; 如果是水平的 */
 }
 
 .code-viewer-content {
@@ -161,13 +161,13 @@ onBeforeUnmount(() => {
   /* white-space: pre; 已被移除，pre 和 code 元素会处理空白 */
 }
 
-.code-viewer-content pre {
+.code-viewer-content .view-lines {
   margin: 0;
   padding: 0;
   text-align: left; /* 确保代码块内容左对齐 */
 }
 
-.code-viewer-content code {
+.code-viewer-content .view-line {
   display: block; /* 每行代码占一行 */
   line-height: 1.5;
   white-space: pre-wrap; /* 保留空白符，并在需要时换行 */
