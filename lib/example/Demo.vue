@@ -17,6 +17,11 @@ import { lineNumberPlugin } from '../plugin/lineNumber'; // 导入行号插件
 
 const codeViewerRef = ref<InstanceType<typeof CodeViewer> | null>(null);
 
+const mockCode: CodeData = [];
+for (let i = 0; i < 200; i++) {
+  mockCode.push({ id: `line${i + 1}`, content: `// This is line number ${i + 1} of the mock code.` });
+}
+
 const initialCode: CodeData = [
   { id: 'line1', content: 'const greet = (name: string) => {' },
   { id: 'line2', content: '  console.log(`Hello, ${name}!`);' },
@@ -40,7 +45,7 @@ const alternativeCode: CodeData = [
   { id: 'alt-line8', content: '</html>' },
 ];
 
-const currentCodeData = ref<CodeData>(initialCode);
+const currentCodeData = ref<CodeData>(mockCode); // 使用200行mock数据进行测试
 const isLineNumberPluginActive = ref(true);
 
 const activePlugins = computed<Plugin[]>(() => {
@@ -54,10 +59,15 @@ const toggleLineNumberPlugin = () => {
 };
 
 const changeCode = () => {
-  if (currentCodeData.value[0].id === 'line1') {
+  // 切换到较短的代码示例，或保持mockCode以持续测试无限滚动
+  if (currentCodeData.value.length === 200 && currentCodeData.value[0].id === 'line1') { // 假设 mockCode 的第一行 id 是 'line1'
+    currentCodeData.value = initialCode; // 切换到原始的 initialCode
+  } else if (currentCodeData.value[0].id === 'line1' && currentCodeData.value.length !== 200) { // 如果是 initialCode
     currentCodeData.value = alternativeCode;
-  } else {
-    currentCodeData.value = initialCode;
+  } else if (currentCodeData.value[0].id === 'alt-line1') { // 如果是 alternativeCode
+    currentCodeData.value = mockCode; // 切换回200行代码
+  } else { // 如果是 mockCode 但不是以 line1 开头（理论上不应该发生，除非 mockCode 结构改变）
+    currentCodeData.value = initialCode; // 默认切换到 initialCode
   }
 };
 
